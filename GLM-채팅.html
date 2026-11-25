@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>GLM 채팅</title>
+<style>
+:root{
+  --bg:#f6f5f2; --panel:#ffffff; --ink:#1d1d1b; --muted:#6b6a65; --line:#e4e2dc;
+  --accent:#c4552d; --accent-ink:#ffffff; --user:#1d1d1b; --user-ink:#ffffff;
+  --code:#f0eee9; --err:#b3261e; --errbg:#fdecea; --ok:#2e7d32;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#161614; --panel:#1f1f1c; --ink:#ecebe6; --muted:#9a988f; --line:#32312d;
+    --accent:#e0714a; --accent-ink:#1a1a18; --user:#ecebe6; --user-ink:#161614;
+    --code:#2a2a26; --err:#f2b8b5; --errbg:#3a1f1d; --ok:#7bd88f;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:16px; line-height:1.6;
+}
+button,textarea,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:flex;flex-direction:column;height:100dvh;max-width:820px;margin:0 auto}
+
+header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 18px;border-bottom:1px solid var(--line);
+}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.actions{display:flex;gap:8px}
+.ghost{
+  background:transparent;border:1px solid var(--line);border-radius:999px;
+  padding:6px 14px;font-size:14px;color:var(--ink);
+}
+.ghost:hover{border-color:var(--muted)}
+.ghost:disabled{opacity:.5;cursor:default}
+
+#settings{padding:14px 18px 18px;border-bottom:1px solid var(--line);background:var(--panel);max-height:70vh;overflow-y:auto}
+#settings[hidden]{display:none}
+.sec{margin-top:18px}
+.sec:first-child{margin-top:0}
+.fld{display:block;font-size:13px;font-weight:700;margin:0 0 6px}
+.line{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.line.nowrap{flex-wrap:nowrap}
+input[type=text],input[type=password]{
+  flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--bg);
+}
+.small{font-size:12px;color:var(--muted);margin:6px 0 0}
+#testResult{font-size:13px}
+#testResult.ok{color:var(--ok)}
+#testResult.bad{color:var(--err)}
+#persona{
+  width:100%;resize:vertical;min-height:64px;max-height:180px;
+  border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--bg);
+}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{
+  border:1px solid var(--line);background:transparent;border-radius:999px;
+  padding:4px 12px;font-size:13px;
+}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.check{display:flex;align-items:flex-start;gap:8px;font-size:14px}
+.check input{margin-top:5px}
+details.adv summary{cursor:pointer;font-size:13px;font-weight:700}
+details.adv .inner{margin-top:10px;display:grid;gap:12px}
+
+main{flex:1;overflow-y:auto;padding:20px 18px 8px;scroll-behavior:smooth}
+.msg{display:flex;margin:0 0 14px}
+.msg.user{justify-content:flex-end}
+.bubble{
+  max-width:85%;padding:10px 14px;border-radius:18px;word-break:break-word;
+  border:1px solid var(--line);background:var(--panel);
+}
+.msg.user .bubble{background:var(--user);color:var(--user-ink);border-color:var(--user);border-bottom-right-radius:6px}
+.msg.ai .bubble{border-bottom-left-radius:6px}
+.bubble.err{background:var(--errbg);border-color:var(--err);color:var(--err)}
+.bubble.err .etext{white-space:pre-line}
+.bubble.err button{
+  margin-top:8px;border:1px solid currentColor;background:transparent;border-radius:999px;padding:1px 12px;font-size:13px
+}
+.bubble code{background:var(--code);border-radius:6px;padding:1px 5px;font-size:.9em}
+.bubble pre{background:var(--code);border-radius:10px;padding:10px 12px;overflow-x:auto;margin:8px 0}
+.bubble pre code{background:none;padding:0}
+.note{font-size:12px;color:var(--muted);margin-top:6px}
+.bubble.err .note{color:inherit;opacity:.85;word-break:break-all}
+.think{margin:0 0 8px;border:1px dashed var(--line);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--muted)}
+.think summary{cursor:pointer}
+.think .tb{white-space:pre-wrap;margin-top:6px;max-height:240px;overflow:auto}
+
+.typing{display:inline-flex;gap:4px;align-items:center;height:1.6em}
+.typing i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:b 1s infinite ease-in-out}
+.typing i:nth-child(2){animation-delay:.15s}
+.typing i:nth-child(3){animation-delay:.3s}
+@keyframes b{0%,80%,100%{opacity:.25;transform:translateY(0)}40%{opacity:1;transform:translateY(-3px)}}
+@media (prefers-reduced-motion: reduce){.typing i{animation:none;opacity:.6}main{scroll-behavior:auto}}
+
+#empty{text-align:center;margin:10vh auto 0;max-width:460px;color:var(--muted)}
+#empty h1{font-size:22px;color:var(--ink);margin:0 0 8px;letter-spacing:-.02em}
+#empty p{margin:0 0 18px}
+#empty .chips{justify-content:center}
+#needKey{
+  margin:0 0 18px;padding:12px 14px;border:1px solid var(--accent);border-radius:14px;
+  color:var(--ink);background:var(--panel);text-align:left
+}
+#needKey[hidden]{display:none}
+#needKey button{margin-top:8px}
+
+.composer{padding:10px 18px 16px}
+.box{
+  display:flex;align-items:flex-end;gap:8px;
+  border:1px solid var(--line);background:var(--panel);border-radius:22px;padding:8px 8px 8px 16px;
+}
+.box:focus-within{border-color:var(--accent)}
+#input{
+  flex:1;border:0;background:transparent;resize:none;outline:none;
+  max-height:160px;line-height:1.5;padding:6px 0;
+}
+.icon{
+  width:40px;height:40px;border-radius:50%;border:0;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+#btnSend{background:var(--accent);color:var(--accent-ink)}
+.icon svg{width:20px;height:20px;fill:currentColor}
+.icon svg[hidden]{display:none}
+.status{display:flex;justify-content:space-between;gap:10px;min-height:22px;margin-top:6px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><span class="dot" aria-hidden="true"></span>GLM 채팅</div>
+    <div class="actions">
+      <button class="ghost" id="btnSettings" aria-expanded="false" aria-controls="settings">설정</button>
+      <button class="ghost" id="btnNew">새 대화</button>
+    </div>
+  </header>
+
+  <section id="settings" hidden>
+    <div class="sec">
+      <label class="fld" for="apiKey">API 키 (Z.AI에서 받은 긴 글자)</label>
+      <div class="line nowrap">
+        <input type="password" id="apiKey" autocomplete="off" spellcheck="false" placeholder="여기에 붙여넣기">
+        <button class="ghost" id="btnShowKey" type="button" aria-pressed="false">보기</button>
+      </div>
+      <div class="line" style="margin-top:8px">
+        <button class="ghost" id="btnTest" type="button">연결 테스트</button>
+        <button class="ghost" id="btnClearKey" type="button">키 지우기</button>
+        <span id="testResult" role="status"></span>
+      </div>
+      <p class="small">키는 이 컴퓨터의 브라우저 안에만 저장돼요. 이 파일 안에는 키가 들어 있지 않아서, 파일을 다른 사람에게 줘도 키는 새지 않아요.</p>
+    </div>
+
+    <div class="sec">
+      <label class="check"><input type="checkbox" id="thinkOn"><span>깊게 생각하기 (답이 느려지는 대신 어려운 질문에 더 강해요. 평소엔 꺼 두면 빨라요)</span></label>
+    </div>
+
+    <div class="sec">
+      <label class="fld" for="persona">AI의 말투·역할 (프롬프트로 정해 보세요)</label>
+      <textarea id="persona" maxlength="600" placeholder="예: 편한 반말로 말하는 친한 친구. 가볍고 재치 있게."></textarea>
+      <div class="chips" id="presets" role="group" aria-label="말투 예시"></div>
+    </div>
+
+    <details class="adv sec">
+      <summary>고급 설정 (몰라도 괜찮아요)</summary>
+      <div class="inner">
+        <div>
+          <label class="fld" for="model">모델 이름</label>
+          <input type="text" id="model" list="modelList" autocomplete="off" spellcheck="false">
+          <datalist id="modelList">
+            <option value="glm-4.7-flash"></option>
+            <option value="glm-4.5-flash"></option>
+            <option value="glm-4.7"></option>
+          </datalist>
+        </div>
+        <div>
+          <label class="fld" for="baseUrl">서버 주소</label>
+          <input type="text" id="baseUrl" autocomplete="off" spellcheck="false">
+          <p class="small">나중에 내 컴퓨터의 AI(Ollama, LM Studio)나 다른 OpenAI 호환 서비스로 바꿀 때 쓰는 칸이에요.</p>
+        </div>
+        <div><button class="ghost" id="btnReset" type="button">모델·서버 주소 기본값으로</button></div>
+      </div>
+    </details>
+  </section>
+
+  <main id="log" role="log" aria-live="polite" aria-label="대화">
+    <div id="empty">
+      <h1>무엇이든 말을 걸어보세요</h1>
+      <div id="needKey" hidden>
+        처음이시군요! 먼저 오른쪽 위 <b>설정</b>을 열고, Z.AI에서 받은 <b>API 키</b>를 붙여넣어 주세요.
+        <div><button class="ghost" id="btnOpenSettings" type="button">설정 열기</button></div>
+      </div>
+      <p>답변이 생기는 대로 바로바로 보여드려요.</p>
+      <div class="chips" id="starters"></div>
+    </div>
+  </main>
+
+  <div class="composer">
+    <div class="box">
+      <textarea id="input" rows="1" placeholder="메시지를 입력하세요" aria-label="메시지 입력"></textarea>
+      <button class="icon" id="btnSend" aria-label="보내기" title="보내기 (Enter)">
+        <svg id="icoSend" viewBox="0 0 24 24" aria-hidden="true"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12 2-12 2z"/></svg>
+        <svg id="icoStop" viewBox="0 0 24 24" aria-hidden="true" hidden><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+      </button>
+    </div>
+    <div class="status"><span id="notice">Enter로 전송 · Shift+Enter로 줄바꿈</span></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var log = $('log'), input = $('input'), btnSend = $('btnSend'), notice = $('notice'),
+      persona = $('persona'), emptyEl = $('empty'), keyEl = $('apiKey'), modelEl = $('model'),
+      baseEl = $('baseUrl'), thinkOn = $('thinkOn'), needKey = $('needKey'), settings = $('settings'),
+      btnTest = $('btnTest'), testResult = $('testResult');
+
+  var DEF = { base: 'https://api.z.ai/api/paas/v4', model: 'glm-4.7-flash' };
+  var BASE_RULES = '너는 사용자와 실시간으로 채팅하는 AI야. 채팅답게 자연스럽고 간결하게 답해(보통 1~4문장). ' +
+    '사용자가 쓴 언어로 답해. 목록이나 코드 블록은 꼭 필요할 때만 써.';
+  var PRESETS = [
+    { name: '기본', text: '친절하고 솔직한 대화 상대.' },
+    { name: '친한 친구', text: '편한 반말로 말하는 친한 친구. 가볍고 재치 있게, 공감도 잘해줘.' },
+    { name: '차분한 비서', text: '존댓말을 쓰는 차분하고 정확한 비서. 핵심부터 말해.' },
+    { name: '영어 회화 선생님', text: '영어 회화 선생님. 영어로 대화하고, 내 문장에 틀린 곳이 있으면 짧게 고쳐준 뒤 대화를 이어가.' },
+    { name: '판타지 마을 NPC', text: '판타지 RPG 마을의 NPC. 세계관 속 인물로 말하고, 퀘스트를 던지거나 소문을 들려줘.' }
+  ];
+  var STARTERS = ['오늘 있었던 일 들어줄래?', '영어로 자기소개 연습하고 싶어', '게임 캐릭터 설정 같이 만들자', '심심한데 끝말잇기 하자'];
+
+  var history = [];
+  var busy = false, ctrl = null, storageOk = true;
+
+  /* ---------- storage (브라우저 안에만 저장) ---------- */
+  function sget(k) { try { return localStorage.getItem('zaichat.' + k); } catch (e) { return null; } }
+  function sset(k, v) {
+    try {
+      if (v === null || v === '') localStorage.removeItem('zaichat.' + k);
+      else localStorage.setItem('zaichat.' + k, v);
+    } catch (e) { storageOk = false; }
+  }
+
+  /* ---------- helpers ---------- */
+  var noticeTimer = null;
+  var DEFAULT_NOTICE = 'Enter로 전송 · Shift+Enter로 줄바꿈';
+  function setNotice(msg, sticky) {
+    notice.textContent = msg;
+    clearTimeout(noticeTimer);
+    if (!sticky) noticeTimer = setTimeout(function () { notice.textContent = DEFAULT_NOTICE; }, 5000);
+  }
+  function esc(s) {
+    return s.replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function md(src) {
+    return src.split('```').map(function (p, i) {
+      if (i % 2 === 1) {
+        var nl = p.indexOf('\n');
+        var code = nl >= 0 ? p.slice(nl + 1) : p;
+        return '<pre><code>' + esc(code.replace(/\n$/, '')) + '</code></pre>';
+      }
+      var h = esc(p);
+      h = h.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+      h = h.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      return h.replace(/\n/g, '<br>');
+    }).join('');
+  }
+  var TYPING = '<span class="typing" aria-label="답변 작성 중"><i></i><i></i><i></i></span>';
+
+  function nearBottom() { return log.scrollHeight - log.scrollTop - log.clientHeight < 140; }
+  function toBottom() { log.scrollTop = log.scrollHeight; }
+  function autosize() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  }
+  function setBusy(v) {
+    busy = v;
+    $('icoSend').hidden = v;
+    $('icoStop').hidden = !v;
+    btnSend.setAttribute('aria-label', v ? '멈추기' : '보내기');
+    btnSend.title = v ? '답변 멈추기' : '보내기 (Enter)';
+    btnTest.disabled = v;
+  }
+  function addUser(text) {
+    var wrap = document.createElement('div');
+    wrap.className = 'msg user';
+    var b = document.createElement('div');
+    b.className = 'bubble';
+    b.innerHTML = esc(text).replace(/\n/g, '<br>');
+    wrap.appendChild(b);
+    log.appendChild(wrap);
+  }
+  function addAi() {
+    var wrap = document.createElement('div');
+    wrap.className = 'msg ai';
+    var b = document.createElement('div');
+    b.className = 'bubble';
+    var think = document.createElement('details');
+    think.className = 'think'; think.hidden = true;
+    var sum = document.createElement('summary');
+    sum.textContent = '생각하는 중…';
+    var tb = document.createElement('div');
+    tb.className = 'tb';
+    think.appendChild(sum); think.appendChild(tb);
+    var ans = document.createElement('div');
+    ans.className = 'ans';
+    ans.innerHTML = TYPING;
+    b.appendChild(think); b.appendChild(ans);
+    wrap.appendChild(b);
+    log.appendChild(wrap);
+    return { wrap: wrap, body: b, think: think, sum: sum, tb: tb, ans: ans, opened: false, folded: false };
+  }
+  function render(ai, thinkText, text) {
+    if (thinkText) {
+      ai.think.hidden = false;
+      ai.tb.textContent = thinkText;
+      if (!text) {
+        ai.sum.textContent = '생각하는 중…';
+        if (!ai.opened) { ai.think.open = true; ai.opened = true; }
+      } else {
+        ai.sum.textContent = '생각 과정 보기';
+        if (!ai.folded) { ai.think.open = false; ai.folded = true; }
+      }
+    }
+    ai.ans.innerHTML = text ? md(text) : (thinkText ? '' : TYPING);
+  }
+
+  /* ---------- persona ---------- */
+  var presetBtns = [];
+  function markPreset() {
+    presetBtns.forEach(function (b, i) {
+      b.setAttribute('aria-pressed', persona.value.trim() === PRESETS[i].text ? 'true' : 'false');
+    });
+  }
+  PRESETS.forEach(function (p) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = p.name;
+    b.addEventListener('click', function () { persona.value = p.text; sset('persona', persona.value); markPreset(); });
+    $('presets').appendChild(b);
+    presetBtns.push(b);
+  });
+  persona.value = sget('persona') || PRESETS[0].text;
+  persona.addEventListener('input', function () { sset('persona', persona.value); markPreset(); });
+  markPreset();
+
+  STARTERS.forEach(function (t) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'chip'; b.textContent = t;
+    b.addEventListener('click', function () { send(t); });
+    $('starters').appendChild(b);
+  });
+
+  /* ---------- settings ---------- */
+  keyEl.value = sget('key') || '';
+  modelEl.value = sget('model') || DEF.model;
+  baseEl.value = sget('base') || DEF.base;
+  thinkOn.checked = sget('think') === '1';
+
+  function getModel() { return modelEl.value.trim() || DEF.model; }
+  function chatURL() { return (baseEl.value.trim() || DEF.base).replace(/\/+$/, '') + '/chat/completions'; }
+  function updateNeedKey() { needKey.hidden = !!keyEl.value.trim(); }
+  function keyProblem() {
+    var k = keyEl.value.trim();
+    if (!k) return '먼저 설정에서 API 키를 붙여넣어 주세요.';
+    if (/[^\x21-\x7E]/.test(k)) return '키 안에 공백이나 한글 같은 이상한 글자가 섞여 있어요. Z.AI 화면에서 키를 다시 복사해서 붙여넣어 주세요.';
+    return '';
+  }
+  function openSettings(open) {
+    settings.hidden = !open;
+    $('btnSettings').setAttribute('aria-expanded', String(open));
+  }
+  $('btnSettings').addEventListener('click', function () { openSettings(settings.hidden); });
+  $('btnOpenSettings').addEventListener('click', function () { openSettings(true); keyEl.focus(); });
+
+  keyEl.addEventListener('input', function () {
+    sset('key', keyEl.value.trim());
+    if (!storageOk) setNotice('이 브라우저에서는 키를 저장할 수 없어요. 창을 닫으면 다시 붙여넣어야 해요.', true);
+    updateNeedKey();
+  });
+  modelEl.addEventListener('input', function () { sset('model', modelEl.value.trim()); });
+  baseEl.addEventListener('input', function () { sset('base', baseEl.value.trim()); });
+  thinkOn.addEventListener('change', function () { sset('think', thinkOn.checked ? '1' : '0'); });
+  $('btnShowKey').addEventListener('click', function () {
+    var show = keyEl.type === 'password';
+    keyEl.type = show ? 'text' : 'password';
+    this.textContent = show ? '숨기기' : '보기';
+    this.setAttribute('aria-pressed', String(show));
+  });
+  $('btnClearKey').addEventListener('click', function () {
+    keyEl.value = ''; sset('key', null); updateNeedKey();
+    testResult.textContent = ''; testResult.className = '';
+    setNotice('저장된 키를 지웠어요.');
+  });
+  $('btnReset').addEventListener('click', function () {
+    modelEl.value = DEF.model; baseEl.value = DEF.base; sset('model', null); sset('base', null);
+    setNotice('모델과 서버 주소를 기본값으로 되돌렸어요.');
+  });
+  if (!keyEl.value) openSettings(true);
+  updateNeedKey();
+
+  /* ---------- errors ---------- */
+  function apiError(o, status) {
+    o = o || {};
+    return { kind: 'http', status: status || 0, code: String(o.code || ''), msg: String(o.message || o.msg || '') };
+  }
+  function httpError(status, text) {
+    var j = null;
+    try { j = JSON.parse(text); } catch (e) {}
+    var o = j && (j.error || j);
+    var err = apiError(o && typeof o === 'object' ? o : {}, status);
+    if (!err.msg && text) err.msg = text.slice(0, 200);
+    return err;
+  }
+  /* 연결이 안 될 때 이유를 가려내요: 미리보기 창 / 인터넷 끊김 / 길 막힘 / 브라우저 보안 규칙(CORS) */
+  async function diagnose() {
+    try { if (window.self !== window.top) return 'embedded'; } catch (e) { return 'embedded'; }
+    if (navigator.onLine === false) return 'offline';
+    var origin;
+    try { origin = new URL(chatURL()).origin; } catch (e) { return 'badurl'; }
+    var c = new AbortController();
+    var timer = setTimeout(function () { c.abort(); }, 8000);
+    try {
+      await fetch(origin + '/', { mode: 'no-cors', cache: 'no-store', signal: c.signal });
+      return 'cors';
+    } catch (e) {
+      return 'blocked';
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  function errorInfo(e) {
+    var detail = '';
+    if (e && e.kind === 'network') {
+      var why = {
+        embedded: '지금 이 페이지가 미리보기(작은 창) 안에서 열려 있어서 인터넷 접속이 막혀 있어요. 파일을 다운로드한 뒤, 크롬 같은 브라우저에서 직접 열어 주세요.',
+        offline: '인터넷이 끊겨 있는 것 같아요. 연결을 확인한 뒤 다시 시도해 주세요.',
+        badurl: '서버 주소가 잘못된 것 같아요. 설정의 고급 설정에서 "기본값으로" 버튼을 눌러 주세요.',
+        blocked: '이 컴퓨터(또는 지금 쓰는 인터넷)에서 Z.AI 서버로 가는 길이 막혀 있는 것 같아요. 회사·학교 인터넷, VPN, 보안·광고 차단 프로그램이 원인일 수 있어요. 휴대폰 핫스팟 같은 다른 인터넷으로 해 보세요.',
+        cors: 'Z.AI 서버에는 닿는데, 브라우저가 이 파일이 받은 답을 보여주지 못하게 막고 있어요(브라우저 보안 규칙). 이 방식으로는 안 될 가능성이 커요. 저한테 이 메시지가 떴다고 알려주세요. 다른 방법을 안내해 드릴게요.'
+      }[e.reason];
+      return {
+        retry: e.reason !== 'embedded' && e.reason !== 'cors',
+        text: 'Z.AI 서버에 연결하지 못했어요.\n' + (why || '인터넷 연결을 확인하고 다시 시도해 주세요.'),
+        detail: ''
+      };
+    }
+    if (e && e.kind === 'http') {
+      detail = e.msg ? '서버 메시지: ' + e.msg + (e.code ? ' (코드 ' + e.code + ')' : '') : '';
+      var s = e.status;
+      if (s === 401 || s === 403 || /^100[0-4]$/.test(e.code))
+        return { retry: false, detail: detail, text: 'API 키가 맞지 않는 것 같아요. 설정에서 키를 다시 붙여넣어 주세요. (복사할 때 앞이나 뒤가 잘리지 않았는지 확인해 주세요.)' };
+      if (s === 429)
+        return { retry: true, detail: detail, text: '요청이 몰렸거나 사용 한도에 걸렸어요. 무료 모델은 한 번에 한 답변씩만 받을 수 있어서, 잠시(10~30초) 뒤에 다시 시도해 보세요. 계속 그러면 오늘의 무료 사용량을 다 쓴 걸 수도 있어요.' };
+      if (s >= 500)
+        return { retry: true, detail: detail, text: 'Z.AI 서버가 잠깐 불안정해요. 조금 뒤에 다시 시도해 주세요.' };
+      if (s >= 400)
+        return { retry: false, detail: detail, text: '요청이 거절됐어요. 모델 이름이 맞는지 설정의 고급 설정에서 확인해 주세요. (기본값은 glm-4.7-flash)' };
+      return { retry: true, detail: detail, text: 'Z.AI가 오류를 알려왔어요.' };
+    }
+    if (e && e.kind === 'empty') return { retry: true, detail: '', text: 'AI가 빈 답변을 보냈어요. 다시 시도해 주세요.' };
+    return { retry: true, detail: e && e.message ? String(e.message) : '', text: '답변을 가져오지 못했어요.' };
+  }
+
+  /* ---------- AI call ---------- */
+  function buildMessages() {
+    var merged = [];
+    history.slice(-30).forEach(function (m) {
+      var last = merged[merged.length - 1];
+      if (last && last.role === m.role) last.content += '\n\n' + m.content;
+      else merged.push({ role: m.role, content: m.content });
+    });
+    while (merged.length && merged[0].role !== 'user') merged.shift();
+    var who = persona.value.trim() || PRESETS[0].text;
+    return [{ role: 'system', content: BASE_RULES + '\n역할/말투: ' + who }].concat(merged);
+  }
+
+  function request(body, signal) {
+    return fetch(chatURL(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + keyEl.value.trim() },
+      body: JSON.stringify(body),
+      signal: signal
+    }).catch(function (e) {
+      if (signal && signal.aborted) throw e;
+      throw { kind: 'network', cause: e };
+    });
+  }
+
+  async function streamChat(signal, onUpdate) {
+    var body = {
+      model: getModel(),
+      messages: buildMessages(),
+      stream: true,
+      thinking: { type: thinkOn.checked ? 'enabled' : 'disabled' }
+    };
+    var res = await request(body, signal);
+    if (!res.ok) {
+      var t = '';
+      try { t = await res.text(); } catch (e) {}
+      throw httpError(res.status, t);
+    }
+    var think = '', ans = '', truncated = false, finished = false;
+
+    var ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.indexOf('application/json') >= 0) {
+      var j = await res.json();
+      if (j.error) throw apiError(j.error, res.status);
+      var ch = j.choices && j.choices[0];
+      var m = (ch && ch.message) || {};
+      think = m.reasoning_content || ''; ans = m.content || '';
+      truncated = !!(ch && ch.finish_reason === 'length');
+      onUpdate(think, ans);
+      return { think: think, text: ans, truncated: truncated };
+    }
+
+    function handleLine(line) {
+      line = line.trim();
+      if (line.indexOf('data:') !== 0) return;
+      var data = line.slice(5).trim();
+      if (data === '[DONE]') { finished = true; return; }
+      var j;
+      try { j = JSON.parse(data); } catch (e) { return; }
+      if (j.error) throw apiError(j.error, res.status);
+      var c = j.choices && j.choices[0];
+      if (!c) return;
+      var d = c.delta || {};
+      if (d.reasoning_content) think += d.reasoning_content;
+      if (d.content) ans += d.content;
+      if (c.finish_reason === 'length') truncated = true;
+      if (d.reasoning_content || d.content) onUpdate(think, ans);
+    }
+
+    if (res.body && res.body.getReader) {
+      var reader = res.body.getReader(), dec = new TextDecoder(), buf = '';
+      while (!finished) {
+        var r = await reader.read();
+        if (r.done) break;
+        buf += dec.decode(r.value, { stream: true });
+        var lines = buf.split('\n');
+        buf = lines.pop();
+        for (var i = 0; i < lines.length && !finished; i++) handleLine(lines[i]);
+      }
+      if (!finished && buf) handleLine(buf);
+    } else {
+      (await res.text()).split('\n').forEach(handleLine);
+    }
+    return { think: think, text: ans, truncated: truncated };
+  }
+
+  function showError(ai, e) {
+    var info = errorInfo(e);
+    ai.wrap.className = 'msg ai';
+    ai.body.className = 'bubble err';
+    ai.body.innerHTML = '';
+    var t = document.createElement('div');
+    t.className = 'etext'; t.textContent = info.text;
+    ai.body.appendChild(t);
+    if (info.detail) {
+      var d = document.createElement('div');
+      d.className = 'note'; d.textContent = info.detail;
+      ai.body.appendChild(d);
+    }
+    if (info.retry) {
+      var r = document.createElement('button');
+      r.type = 'button'; r.textContent = '다시 시도';
+      r.addEventListener('click', function () { if (!busy) { ai.wrap.remove(); respond(); } });
+      ai.body.appendChild(r);
+    }
+  }
+
+  async function respond() {
+    setBusy(true);
+    var ai = addAi();
+    toBottom();
+    ctrl = new AbortController();
+    var myCtrl = ctrl;
+    var shownThink = '', shownText = '';
+    try {
+      var out = await streamChat(myCtrl.signal, function (th, tx) {
+        shownThink = th; shownText = tx;
+        var stick = nearBottom();
+        render(ai, th, tx);
+        if (stick) toBottom();
+      });
+      var answer = (out.text || '').trim();
+      if (!answer) throw { kind: 'empty' };
+      history.push({ role: 'assistant', content: answer });
+      render(ai, out.think, answer);
+      if (out.truncated) {
+        var n = document.createElement('div');
+        n.className = 'note'; n.textContent = '답변이 길어서 중간에 끊겼어요. "계속"이라고 보내면 이어서 말해요.';
+        ai.body.appendChild(n);
+      }
+    } catch (e) {
+      var partial = shownText.trim();
+      if (myCtrl.signal.aborted) {
+        if (partial) {
+          history.push({ role: 'assistant', content: partial });
+          render(ai, shownThink, partial);
+          var m = document.createElement('div');
+          m.className = 'note'; m.textContent = '멈춤';
+          ai.body.appendChild(m);
+        } else {
+          ai.wrap.remove();
+          setNotice('답변을 멈췄어요.');
+        }
+      } else if (partial) {
+        history.push({ role: 'assistant', content: partial });
+        render(ai, shownThink, partial);
+        var w = document.createElement('div');
+        w.className = 'note'; w.textContent = '연결이 끊겨서 여기까지만 받았어요.';
+        ai.body.appendChild(w);
+      } else {
+        if (e && e.kind === 'network' && !e.reason) e.reason = await diagnose();
+        showError(ai, e);
+      }
+    } finally {
+      setBusy(false);
+      if (ctrl === myCtrl) ctrl = null;
+      if (nearBottom()) toBottom();
+    }
+  }
+
+  function send(text) {
+    text = (text || '').trim();
+    if (!text || busy) return;
+    var problem = keyProblem();
+    if (problem) {
+      openSettings(true);
+      keyEl.focus();
+      setNotice(problem, true);
+      return;
+    }
+    openSettings(false);
+    if (emptyEl.parentNode) emptyEl.remove();
+    history.push({ role: 'user', content: text });
+    addUser(text);
+    input.value = ''; autosize();
+    respond();
+  }
+
+  btnSend.addEventListener('click', function () {
+    if (busy) { if (ctrl) ctrl.abort(); return; }
+    send(input.value);
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault();
+      send(input.value);
+    }
+  });
+  input.addEventListener('input', autosize);
+
+  $('btnNew').addEventListener('click', function () {
+    if (ctrl) ctrl.abort();
+    history = [];
+    log.innerHTML = '';
+    log.appendChild(emptyEl);
+    setNotice('새 대화를 시작했어요.');
+    input.focus();
+  });
+
+  /* ---------- connection test ---------- */
+  btnTest.addEventListener('click', async function () {
+    if (busy) return;
+    var problem = keyProblem();
+    testResult.className = 'bad';
+    if (problem) { testResult.textContent = problem; return; }
+    testResult.className = ''; testResult.textContent = '확인하는 중…';
+    btnTest.disabled = true;
+    var c = new AbortController();
+    var timer = setTimeout(function () { c.abort(); }, 25000);
+    try {
+      var res = await request({
+        model: getModel(),
+        messages: [{ role: 'user', content: '안녕' }],
+        max_tokens: 16,
+        thinking: { type: 'disabled' }
+      }, c.signal);
+      var t = '';
+      try { t = await res.text(); } catch (e) {}
+      if (!res.ok) throw httpError(res.status, t);
+      var j = null;
+      try { j = JSON.parse(t); } catch (e) {}
+      if (j && j.error) throw apiError(j.error, res.status);
+      testResult.className = 'ok';
+      testResult.textContent = '연결 성공! 이제 대화할 수 있어요.';
+    } catch (e) {
+      testResult.className = 'bad';
+      if (c.signal.aborted) testResult.textContent = '시간이 너무 오래 걸려서 멈췄어요. 잠시 뒤 다시 눌러 주세요.';
+      else {
+        if (e && e.kind === 'network' && !e.reason) e.reason = await diagnose();
+        var info = errorInfo(e);
+        testResult.textContent = info.text.replace(/\n/g, ' ') + (info.detail ? ' · ' + info.detail : '');
+      }
+    } finally {
+      clearTimeout(timer);
+      btnTest.disabled = busy;
+    }
+  });
+
+  if (settings.hidden) input.focus();
+})();
+</script>
+</body>
+</html>
